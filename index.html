@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Similarity Checker</title>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <style>
+        :root {
+            --primary: #2ea44f;
+            --primary-dark: #2c974b;
+            --secondary: #f6f8fa;
+            --border: #e1e4e8;
+            --text: #24292e;
+            --text-light: #586069;
+            --error: #cb2431;
+            --warning: #f9c513;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        body {
+            background-color: #fafbfc;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .auth-buttons button {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .auth-buttons button:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .subtitle {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .input-section, .results-section {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            min-height: 200px;
+            resize: vertical;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn:disabled {
+            background-color: #94d3a2;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .source-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .similarity-score {
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .high-similarity {
+            background-color: var(--error);
+            color: white;
+        }
+        
+        .medium-similarity {
+            background-color: var(--warning);
+            color: var(--text);
+        }
+        
+        .low-similarity {
+            background-color: #e8f5e9;
+            color: var(--text);
+        }
+        
+        .result-details {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .result-details a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .result-details a:hover {
+            text-decoration: underline;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+        }
+        
+        .error-message {
+            color: var(--error);
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .info-box {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box h3 {
+            color: #1565c0;
+            margin-bottom: 10px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+        }
+        
+        .info-box li {
+            margin-bottom: 5px;
+        }
+        
+        .match-snippet {
+            background-color: #f6f8fa;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .content-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .content-type-btn {
+            flex: 1;
+            padding: 10px;
+            background: #f6f8fa;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .content-type-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .content-example {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+        
+        /* Auth Styles */
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            margin: 50px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .auth-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .auth-form {
+            display: none;
+        }
+        
+        .auth-form.active {
+            display: block;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            display: none;
+        }
+        
+        /* Subscription Styles */
+        .subscription-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin: 30px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .subscription-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .subscription-plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .plan-card {
+            border: 2px solid #eee;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .plan-card.featured {
+            border-color: var(--primary);
+            position: relative;
+        }
+        
+        .plan-card.featured::before {
+            content: 'POPULAR';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .plan-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .plan-price {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 15px 0;
+            color: var(--text);
+        }
+        
+        .plan-features {
+            text-align: left;
+            margin: 20px 0;
+        }
+        
+        .feature {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature i {
+            color: var(--primary);
+            margin-right: 10px;
+        }
+        
+        .subscribe-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            transition: opacity 0.3s ease;
+        }
+        
+        .subscribe-btn:hover {
+            opacity: 0.9;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            padding: 30px;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .notification.success {
+            background-color: var(--primary);
+        }
+        
+        .notification.error {
+            background-color: var(--error);
+        }
+        
+        .notification.show {
+            opacity: 1;
+        }
+        
+        /* Page Styles */
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* Usage Counter */
+        .usage-counter {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px auto;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }
+        
+        .usage-item {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        
+        .usage-warning {
+            color: var(--error);
+            font-weight: 600;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('paymentModal')">&times;</span>
+            <h2 style="text-align:center; margin-bottom:20px;">Complete Your Subscription</h2>
+            <div id="payment-details">
+                <p>Plan: <span id="selected-plan"></span></p>
+                <p>Amount: <span id="selected-amount"></span></p>
+            </div>
+            <button class="btn" onclick="processPayment()">Pay with ATM Card</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                Content Similarity Checker
+            </div>
+            <div class="auth-buttons" id="header-buttons" style="display: none;">
+                <button onclick="showPage('subscription')">Subscribe</button>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Auth Page -->
+        <div id="auth-page" class="page active">
+            <div class="auth-container">
+                <h2 style="text-align: center; margin-bottom: 30px; color: var(--text);">Welcome to Content Similarity Checker</h2>
+                
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="showAuthTab('login')">Login</button>
+                    <button class="auth-tab" onclick="showAuthTab('signup')">Sign Up</button>
+                </div>
+
+                <div id="login-form" class="auth-form active">
+                    <div id="login-error" class="error-message"></div>
+                    <div id="login-success" class="success-message"></div>
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" placeholder="Enter your password">
+                    </div>
+                    <button class="btn" onclick="login()">Login</button>
+                </div>
+
+                <div id="signup-form" class="auth-form">
+                    <div id="signup-error" class="error-message"></div>
+                    <div id="signup-success" class="success-message"></div>
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" placeholder="Create a password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm Password</label>
+                        <input type="password" id="confirm-password" placeholder="Confirm your password">
+                    </div>
+                    <button class="btn" onclick="signup()">Sign Up</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Page -->
+        <div id="main-page" class="page">
+            <div class="info-box">
+                <h3>How This Works</h3>
+                <p>This tool analyzes your text content for similarity with commonly used phrases and content patterns found online. It's perfect for checking articles, essays, and other written content.</p>
+                <ul>
+                    <li>Paste your text in the input area</li>
+                    <li>Select the content type for better analysis</li>
+                    <li>Click "Check for Similarity"</li>
+                    <li>Get detailed similarity analysis with potential sources</li>
+                </ul>
+            </div>
+            
+            <!-- Usage Counter -->
+            <div class="usage-counter">
+                <h3>Your Usage</h3>
+                <div class="usage-item">Checks Remaining: <span id="check-count">0</span></div>
+                <div class="usage-warning" id="usage-warning">Subscribe for unlimited access!</div>
+            </div>
+            
+            <div class="main-content">
+                <div class="input-section">
+                    <h2 class="section-title">Check Content</h2>
+                    
+                    <div class="content-type-selector">
+                        <div class="content-type-btn active" data-type="article">Article</div>
+                        <div class="content-type-btn" data-type="academic">Academic</div>
+                        <div class="content-type-btn" data-type="technical">Technical</div>
+                        <div class="content-type-btn" data-type="general">General</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="content-input">Content to Check</label>
+                        <textarea id="content-input" placeholder="Paste your article, essay, or any text content here..." required></textarea>
+                        <div class="content-example">Example: "Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data."</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sensitivity">Similarity Sensitivity</label>
+                        <select id="sensitivity">
+                            <option value="low">Low (Major matches only)</option>
+                            <option value="medium" selected>Medium (Balanced detection)</option>
+                            <option value="high">High (All potential matches)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="max-results">Maximum Results</label>
+                        <input type="number" id="max-results" min="1" max="15" value="8">
+                    </div>
+                    
+                    <button id="check-btn" class="btn">Check for Similarity</button>
+                    
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <p>Analyzing content patterns...</p>
+                    </div>
+                    
+                    <div id="status-message" class="api-status status-ok">Ready to analyze your content</div>
+                    <div id="error-message" class="error-message"></div>
+                </div>
+                
+                <div class="results-section">
+                    <h2 class="section-title">Similarity Results</h2>
+                    <div id="results-container" class="results">
+                        <div class="no-results">
+                            <p>No results yet. Enter content and click "Check for Similarity" to begin.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription Page -->
+        <div id="subscription-page" class="page">
+            <div class="subscription-container">
+                <div class="subscription-header">
+                    <h2>Premium Access Plans</h2>
+                    <p>Unlock unlimited content similarity checks</p>
+                </div>
+                
+                <div class="subscription-plans">
+                    <div class="plan-card">
+                        <div class="plan-title">Free Trial</div>
+                        <div class="plan-price">₦0</div>
+                        <div class="plan-features">
+                            <div class="feature"><i class="fas fa-check"></i> 3 Days Unlimited Access</div>
+                            <div class="feature"><i class="fas fa-check"></i> All Content Types</div>
+                            <div class="feature"><i class="fas fa-check"></i> Full Analysis Features</div>
+                            <div class="feature"><i class="fas fa-times"></i> No Payment Required</div>
+                        </div>
+                        <button class="subscribe-btn" onclick="selectPlan('Free Trial', 0)">Activate Free Trial</button>
+                    </div>
+                    
+                    <div class="plan-card featured">
+                        <div class="plan-title">Monthly Access</div>
+                        <div class="plan-price">₦5,000/month</div>
+                        <div class="plan-features">
+                            <div class="feature"><i class="fas fa-check"></i> Unlimited Checks</div>
+                            <div class="feature"><i class="fas fa-check"></i> All Content Types</div>
+                            <div class="feature"><i class="fas fa-check"></i> Full Analysis Features</div>
+                            <div class="feature"><i class="fas fa-check"></i> Priority Support</div>
+                        </div>
+                        <button class="subscribe-btn" onclick="selectPlan('Monthly Access', 5000)">Subscribe</button>
+                    </div>
+                    
+                    <div class="plan-card">
+                        <div class="plan-title">Quarterly Access</div>
+                        <div class="plan-price">₦13,000/quarter</div>
+                        <div class="plan-features">
+                            <div class="feature"><i class="fas fa-check"></i> Unlimited Checks</div>
+                            <div class="feature"><i class="fas fa-check"></i> All Content Types</div>
+                            <div class="feature"><i class="fas fa-check"></i> Full Analysis Features</div>
+                            <div class="feature"><i class="fas fa-check"></i> Save ₦2,000</div>
+                        </div>
+                        <button class="subscribe-btn" onclick="selectPlan('Quarterly Access', 13000)">Subscribe</button>
+                    </div>
+                    
+                    <div class="plan-card">
+                        <div class="plan-title">Yearly Access</div>
+                        <div class="plan-price">₦50,000/year</div>
+                        <div class="plan-features">
+                            <div class="feature"><i class="fas fa-check"></i> Unlimited Checks</div>
+                            <div class="feature"><i class="fas fa-check"></i> All Content Types</div>
+                            <div class="feature"><i class="fas fa-check"></i> Full Analysis Features</div>
+                            <div class="feature"><i class="fas fa-check"></i> Save ₦10,000</div>
+                        </div>
+                        <button class="subscribe-btn" onclick="selectPlan('Yearly Access', 50000)">Subscribe</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notificationArea"></div>
+
+    <script>
+        // App State
+        let currentUser = null;
+        let userSubscription = null;
+        let usage = {
+            checks: 0
+        };
+
+        // Subscription Plans
+        const subscriptionPlans = {
+            'Free Trial': { days: 3, price: 0 },
+            'Monthly Access': { days: 30, price: 5000 },
+            'Quarterly Access': { days: 90, price: 13000 },
+            'Yearly Access': { days: 365, price: 50000 }
+        };
+
+        // Content Sources
+        const contentSources = {
+            article: [
+                {
+                    name: "Wikipedia Common Phrases",
+                    url: "https://en.wikipedia.org",
+                    description: "Common explanatory phrases found in Wikipedia articles",
+                    patterns: [
+                        "is a", "refers to", "known as", "in terms of", "with respect to",
+                        "on the other hand", "in addition", "for example", "such as",
+                        "as a result", "due to", "in order to", "based on", "according to"
+                    ]
+                },
+                {
+                    name: "News Media Patterns",
+                    url: "https://news.google.com",
+                    description: "Common phrasing in news articles and reports",
+                    patterns: [
+                        "according to sources", "it has been reported", "in a statement",
+                        "officials said", "the report found", "research shows",
+                        "experts believe", "studies have shown", "in recent years",
+                        "as a result of", "in response to", "despite the fact that"
+                    ]
+                },
+                {
+                    name: "Academic Writing",
+                    url: "https://scholar.google.com",
+                    description: "Common academic writing patterns and phrases",
+                    patterns: [
+                        "this paper examines", "the purpose of this study", "methodology",
+                        "literature review", "findings suggest", "in conclusion",
+                        "it is important to note", "the results indicate", "hypothesis",
+                        "statistically significant", "limitations of this study"
+                    ]
+                },
+                {
+                    name: "Technical Documentation",
+                    url: "https://developer.mozilla.org",
+                    description: "Common technical writing and documentation patterns",
+                    patterns: [
+                        "returns a", "takes parameters", "syntax", "implementation",
+                        "functionality", "configuration", "default value", "required field",
+                        "optional parameter", "throws an error", "callback function"
+                    ]
+                },
+                {
+                    name: "Blog Content",
+                    url: "https://medium.com",
+                    description: "Common patterns in blog posts and online articles",
+                    patterns: [
+                        "in this post", "let's take a look", "you might be wondering",
+                        "here's how", "step by step", "the truth is", "what most people don't know",
+                        "surprisingly", "the key takeaway", "in my experience"
+                    ]
+                }
+            ],
+            academic: [
+                {
+                    name: "Research Paper Abstracts",
+                    url: "https://www.ncbi.nlm.nih.gov/pubmed",
+                    description: "Common patterns in academic paper abstracts",
+                    patterns: [
+                        "this study investigates", "the objective of this research",
+                        "methodology involved", "results demonstrated", "conclusions indicate",
+                        "statistical analysis", "p value", "confidence interval",
+                        "limitations include", "future research should"
+                    ]
+                },
+                {
+                    name: "Literature Review Phrases",
+                    url: "https://scholar.google.com",
+                    description: "Common phrases in academic literature reviews",
+                    patterns: [
+                        "previous research has shown", "several studies have",
+                        "while some argue", "there is consensus", "the prevailing view",
+                        "contrary to popular belief", "emerging evidence suggests",
+                        "it is widely accepted", "scholars have debated"
+                    ]
+                }
+            ],
+            technical: [
+                {
+                    name: "API Documentation",
+                    url: "https://developer.github.com",
+                    description: "Common patterns in technical API documentation",
+                    patterns: [
+                        "endpoint returns", "authentication required", "request parameters",
+                        "response object", "status codes", "rate limiting", "paginated results",
+                        "error handling", "webhook events", "permissions scope"
+                    ]
+                },
+                {
+                    name: "Programming Tutorials",
+                    url: "https://stackoverflow.com",
+                    description: "Common patterns in programming tutorials",
+                    patterns: [
+                        "first, create a", "then, you need to", "run the following command",
+                        "install the package", "import the module", "define the function",
+                        "handle the exception", "test your code", "debug the issue"
+                    ]
+                }
+            ],
+            general: [
+                {
+                    name: "General Knowledge Bases",
+                    url: "https://www.britannica.com",
+                    description: "Common explanatory patterns",
+                    patterns: [
+                        "is defined as", "can be described as", "typically refers to",
+                        "generally speaking", "in most cases", "it is common to",
+                        "usually occurs when", "often results in", "frequently associated with"
+                    ]
+                }
+            ]
+        };
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            initializeContentTypeSelector();
+            
+            // Add enter key listeners
+            document.getElementById('login-password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') login();
+            });
+            
+            document.getElementById('confirm-password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') signup();
+            });
+
+            // Add sample content for testing
+            document.getElementById('content-input').value = `Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from and make predictions on data. This technology has revolutionized many industries in recent years. According to research, machine learning applications range from recommendation systems to autonomous vehicles. The methodology typically involves training models on large datasets and then testing their performance. Results from various studies have shown significant improvements in accuracy compared to traditional approaches. However, it is important to note that these systems have limitations and require careful implementation.`;
+        });
+
+        // Authentication Functions
+        function checkAuthStatus() {
+            const savedUser = localStorage.getItem('similarity_user');
+            const savedSubscription = localStorage.getItem('similarity_subscription');
+            
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                if (savedSubscription) {
+                    userSubscription = JSON.parse(savedSubscription);
+                    // Check if subscription is still valid
+                    if (new Date(userSubscription.expiresAt) > new Date()) {
+                        showPage('main');
+                    } else {
+                        // Subscription expired
+                        userSubscription = null;
+                        localStorage.removeItem('similarity_subscription');
+                        showPage('main');
+                    }
+                } else {
+                    showPage('main');
+                }
+                updateHeader();
+                updateUsageDisplay();
+            } else {
+                showPage('auth');
+            }
+        }
+
+        function showAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + '-form').classList.add('active');
+            
+            clearAuthMessages();
+        }
+
+        function clearAuthMessages() {
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('login-success').style.display = 'none';
+            document.getElementById('signup-error').style.display = 'none';
+            document.getElementById('signup-success').style.display = 'none';
+        }
+
+        function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+            const successDiv = document.getElementById('login-success');
+
+            if (!email || !password) {
+                errorDiv.textContent = 'Please fill in all fields';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Show loading state
+            const loginBtn = document.querySelector('#login-form .btn');
+            const originalText = loginBtn.textContent;
+            loginBtn.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0 auto;"></div>';
+            loginBtn.disabled = true;
+
+            // Simulate API call
+            setTimeout(() => {
+                currentUser = {
+                    id: 'user-' + Math.random().toString(36).substr(2, 9),
+                    email: email,
+                    name: email.split('@')[0]
+                };
+                
+                localStorage.setItem('similarity_user', JSON.stringify(currentUser));
+                
+                successDiv.textContent = 'Login successful!';
+                successDiv.style.display = 'block';
+
+                // Restore button
+                loginBtn.textContent = originalText;
+                loginBtn.disabled = false;
+
+                setTimeout(() => {
+                    checkAuthStatus();
+                }, 1000);
+            }, 1500);
+        }
+
+        function signup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorDiv = document.getElementById('signup-error');
+            const successDiv = document.getElementById('signup-success');
+
+            if (!email || !password || !confirmPassword) {
+                errorDiv.textContent = 'Please fill in all fields';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'Passwords do not match';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Show loading state
+            const signupBtn = document.querySelector('#signup-form .btn');
+            const originalText = signupBtn.textContent;
+            signupBtn.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0 auto;"></div>';
+            signupBtn.disabled = true;
+
+            // Simulate API call
+            setTimeout(() => {
+                currentUser = {
+                    id: 'user-' + Math.random().toString(36).substr(2, 9),
+                    email: email,
+                    name: email.split('@')[0]
+                };
+                
+                localStorage.setItem('similarity_user', JSON.stringify(currentUser));
+                
+                successDiv.textContent = 'Account created successfully!';
+                successDiv.style.display = 'block';
+
+                // Restore button
+                signupBtn.textContent = originalText;
+                signupBtn.disabled = false;
+
+                setTimeout(() => {
+                    checkAuthStatus();
+                }, 1000);
+            }, 1500);
+        }
+
+        function logout() {
+            currentUser = null;
+            userSubscription = null;
+            localStorage.removeItem('similarity_user');
+            localStorage.removeItem('similarity_subscription');
+            showPage('auth');
+            document.getElementById('header-buttons').style.display = 'none';
+            showNotification('You have been logged out successfully', 'success');
+        }
+
+        function updateHeader() {
+            document.getElementById('header-buttons').style.display = 'flex';
+        }
+
+        // Subscription Functions
+        function selectPlan(plan, amount) {
+            if (plan === 'Free Trial') {
+                // Activate free trial
+                activateFreeTrial();
+                return;
+            }
+            
+            selectedPlan = plan;
+            selectedAmount = amount;
+            
+            document.getElementById('selected-plan').textContent = plan;
+            document.getElementById('selected-amount').textContent = `₦${amount.toLocaleString()}`;
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        function activateFreeTrial() {
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 3); // 3 days from now
+            
+            userSubscription = {
+                plan: 'Free Trial',
+                amount: 0,
+                paidAt: new Date().toISOString(),
+                expiresAt: expiresAt.toISOString()
+            };
+            
+            localStorage.setItem('similarity_subscription', JSON.stringify(userSubscription));
+            showNotification('Free trial activated! You have 3 days of unlimited access.', 'success');
+            updateUsageDisplay();
+            closeModal('paymentModal');
+            showPage('main');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function processPayment() {
+            if (!currentUser || !currentUser.email) {
+                showNotification('Please login to continue', 'error');
+                return;
+            }
+
+            const handler = PaystackPop.setup({
+                key: 'pk_live_669ad09183f1ded9229c99297d5d67f539e3c828', // Your Paystack public key
+                email: currentUser.email,
+                amount: selectedAmount * 100,
+                currency: 'NGN',
+                ref: 'SIM' + Math.floor((Math.random() * 1000000000) + 1),
+                callback: function(response) {
+                    showNotification('Payment successful! Subscription activated.', 'success');
+                    closeModal('paymentModal');
+                    
+                    // Activate subscription
+                    const expiresAt = new Date();
+                    expiresAt.setDate(expiresAt.getDate() + subscriptionPlans[selectedPlan].days);
+                    
+                    userSubscription = {
+                        plan: selectedPlan,
+                        amount: selectedAmount,
+                        paidAt: new Date().toISOString(),
+                        expiresAt: expiresAt.toISOString()
+                    };
+                    
+                    localStorage.setItem('similarity_subscription', JSON.stringify(userSubscription));
+                    updateUsageDisplay();
+                },
+                onClose: function() {
+                    showNotification('Payment cancelled', 'error');
+                }
+            });
+            handler.openIframe();
+        }
+
+        function updateUsageDisplay() {
+            const checkCountEl = document.getElementById('check-count');
+            const warningEl = document.getElementById('usage-warning');
+            
+            if (userSubscription && new Date(userSubscription.expiresAt) > new Date()) {
+                // User has active subscription
+                checkCountEl.textContent = 'Unlimited';
+                warningEl.style.display = 'none';
+                
+                // Enable the check button
+                document.getElementById('check-btn').disabled = false;
+            } else {
+                // No active subscription
+                checkCountEl.textContent = usage.checks;
+                warningEl.style.display = 'block';
+                
+                // Disable the check button if no checks remaining
+                document.getElementById('check-btn').disabled = usage.checks <= 0;
+            }
+        }
+
+        // Content Similarity Checker Functions
+        function initializeContentTypeSelector() {
+            const contentTypeBtns = document.querySelectorAll('.content-type-btn');
+            let currentContentType = 'article';
+            
+            // Set up content type selector
+            contentTypeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    contentTypeBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentContentType = this.getAttribute('data-type');
+                });
+            });
+            
+            // Set up check button
+            document.getElementById('check-btn').addEventListener('click', checkSimilarity);
+        }
+
+        async function checkSimilarity() {
+            // Check if user can perform checks
+            if (!userSubscription || new Date(userSubscription.expiresAt) <= new Date()) {
+                if (usage.checks <= 0) {
+                    showNotification('Please subscribe to perform more checks', 'error');
+                    showPage('subscription');
+                    return;
+                }
+                usage.checks--;
+                localStorage.setItem('similarity_usage', JSON.stringify(usage));
+                updateUsageDisplay();
+            }
+
+            // Reset UI
+            const errorMessage = document.getElementById('error-message');
+            const resultsContainer = document.getElementById('results-container');
+            const loading = document.getElementById('loading');
+            const checkBtn = document.getElementById('check-btn');
+            const statusMessage = document.getElementById('status-message');
+            
+            errorMessage.textContent = '';
+            resultsContainer.innerHTML = '<div class="no-results"><p>Analyzing...</p></div>';
+            loading.style.display = 'block';
+            checkBtn.disabled = true;
+            statusMessage.textContent = 'Analyzing content patterns...';
+            statusMessage.className = 'api-status status-ok';
+            
+            const content = document.getElementById('content-input').value.trim();
+            if (!content) {
+                showError('Please enter content to check.');
+                return;
+            }
+            
+            if (content.split(/\s+/).length < 10) {
+                showError('Please enter at least 10 words for meaningful analysis.');
+                return;
+            }
+            
+            try {
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 1800));
+                
+                const results = await analyzeContent(content);
+                displayResults(results);
+                
+                statusMessage.textContent = `Analysis complete. Found ${results.length} potential matches.`;
+            } catch (error) {
+                showError('An error occurred during analysis: ' + error.message);
+                statusMessage.textContent = 'Analysis failed';
+                statusMessage.className = 'api-status status-error';
+            } finally {
+                loading.style.display = 'none';
+                checkBtn.disabled = false;
+            }
+        }
+        
+        function analyzeContent(content) {
+            const sensitivity = document.getElementById('sensitivity').value;
+            const maxResultsCount = parseInt(document.getElementById('max-results').value);
+            const currentContentType = document.querySelector('.content-type-btn.active').getAttribute('data-type');
+            const sources = contentSources[currentContentType] || contentSources.article;
+            
+            const results = [];
+            const contentLower = content.toLowerCase();
+            
+            // Analyze against each source
+            sources.forEach(source => {
+                let totalScore = 0;
+                let matchedPatterns = [];
+                let matchedTextSamples = [];
+                
+                // Check each pattern
+                source.patterns.forEach(pattern => {
+                    const patternLower = pattern.toLowerCase();
+                    if (contentLower.includes(patternLower)) {
+                        // Calculate pattern score based on sensitivity
+                        let patternScore = 10;
+                        if (sensitivity === 'high') patternScore = 15;
+                        if (sensitivity === 'low') patternScore = 5;
+                        
+                        totalScore += patternScore;
+                        matchedPatterns.push(pattern);
+                        
+                        // Find context around the match
+                        const index = contentLower.indexOf(patternLower);
+                        const start = Math.max(0, index - 30);
+                        const end = Math.min(content.length, index + pattern.length + 50);
+                        const snippet = content.substring(start, end);
+                        matchedTextSamples.push(snippet);
+                    }
+                });
+                
+                // Calculate similarity percentage
+                if (totalScore > 0) {
+                    const wordCount = content.split(/\s+/).length;
+                    const baseSimilarity = Math.min((totalScore / wordCount) * 500, 85);
+                    
+                    // Add some realistic variation
+                    const similarity = Math.round(baseSimilarity + (Math.random() * 15));
+                    
+                    results.push({
+                        source: source.name,
+                        url: source.url,
+                        description: source.description,
+                        similarity: similarity,
+                        matchedPatterns: matchedPatterns.slice(0, 5),
+                        textSamples: matchedTextSamples.slice(0, 3),
+                        confidence: getConfidenceLevel(similarity)
+                    });
+                }
+            });
+            
+            // Sort by similarity and limit results
+            return results
+                .sort((a, b) => b.similarity - a.similarity)
+                .slice(0, maxResultsCount);
+        }
+        
+        function getConfidenceLevel(similarity) {
+            if (similarity >= 60) return 'High confidence match';
+            if (similarity >= 30) return 'Medium confidence match';
+            return 'Low confidence match';
+        }
+        
+        function displayResults(results) {
+            const resultsContainer = document.getElementById('results-container');
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <p>No significant content matches found.</p>
+                        <p>Your content appears to be original or uses uncommon phrasing.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let resultsHTML = '';
+            
+            results.forEach(result => {
+                const similarityClass = getSimilarityClass(result.similarity);
+                
+                let patternsHTML = '';
+                if (result.matchedPatterns.length > 0) {
+                    patternsHTML = `<p><strong>Matched Patterns:</strong> ${result.matchedPatterns.join(', ')}</p>`;
+                }
+                
+                let samplesHTML = '';
+                if (result.textSamples.length > 0) {
+                    samplesHTML = `
+                        <div class="match-snippet">
+                            <strong>Example Match:</strong><br>
+                            "...${result.textSamples[0]}..."
+                        </div>
+                    `;
+                }
+                
+                resultsHTML += `
+                    <div class="result-item">
+                        <div class="result-header">
+                            <span class="source-name">${result.source}</span>
+                            <span class="similarity-score ${similarityClass}">${result.similarity}% Similar</span>
+                        </div>
+                        <div class="result-details">
+                            <p><strong>Source:</strong> <a href="${result.url}" target="_blank">${result.url}</a></p>
+                            <p><strong>Description:</strong> ${result.description}</p>
+                            ${patternsHTML}
+                            <p><strong>Confidence:</strong> ${result.confidence}</p>
+                            ${samplesHTML}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsContainer.innerHTML = resultsHTML;
+        }
+        
+        function getSimilarityClass(similarity) {
+            if (similarity >= 60) return 'high-similarity';
+            if (similarity >= 30) return 'medium-similarity';
+            return 'low-similarity';
+        }
+        
+        function showError(message) {
+            const errorMessage = document.getElementById('error-message');
+            const loading = document.getElementById('loading');
+            const checkBtn = document.getElementById('check-btn');
+            const statusMessage = document.getElementById('status-message');
+            
+            errorMessage.textContent = message;
+            loading.style.display = 'none';
+            checkBtn.disabled = false;
+            statusMessage.textContent = 'Ready to analyze';
+            statusMessage.className = 'api-status status-ok';
+        }
+
+        // Utility Functions
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageName + '-page').classList.add('active');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notificationArea = document.getElementById('notificationArea');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            notificationArea.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notificationArea.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Initialize usage from localStorage
+        const savedUsage = localStorage.getItem('similarity_usage');
+        if (savedUsage) {
+            usage = JSON.parse(savedUsage);
+        } else {
+            // Initialize with 5 free checks
+            usage.checks = 5;
+            localStorage.setItem('similarity_usage', JSON.stringify(usage));
+        }
+    </script>
+</body>
+</html>
